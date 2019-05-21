@@ -1,0 +1,115 @@
+---
+title: "Song lyrics"
+author: "Silvia Ventoruzzo"
+date: "10/5/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Preparation
+
+Packages & functions
+```{r}
+library(tidyverse)
+library(tidytext)
+library(topicmodels)
+```
+
+Load dataset
+```{r}
+songdata <- read_csv("./Data/songdata.csv")
+
+songdata <- songdata %>%
+  select(-link)
+```
+
+Filter only specific songs
+```{r}
+artists <- songdata %>%
+  distinct(artist)
+
+songdata %>%
+  filter(artist == "Green Day") %>%
+  arrange(song)
+
+war_songs <- data.frame(
+                  artist = c("The Killers", "Michael Jackson", "System Of A Down",
+                             "Bob Dylan", "System Of A Down", "Guns N\' Roses"),
+                  song   = c("All These Things That I\'ve Done", "Another Part Of Me", "B.Y.O.B.",
+                             "Blowin\' In The Wind", "Boom!", "Civil War"),
+                  theme  = rep("war", 6))
+
+environment_songs <- data.frame(
+                          artist = c("Aerosmith", "Miley Cyrus", "Miley Cyrus", "Linkin Park",
+                                     "Imagine Dragons", "Michael Jackson"),
+                          song   = c("Nobody\'s Fault", "1 Sun", "Wake Up America", "What I've Done",
+                                     "Radioactive", "Earth Song"),
+                          theme = rep("environment", 6))
+
+politic_songs <- data.frame(
+                      artist = c("Green Day", "Offspring", "Green Day", "Offspring"),
+                      song   = c("American Idiot", "Kill The President", "Say Goodbye", "Americana"),
+                      theme  = rep("politic", 6))
+
+selected_songs <- war_songs %>%
+  rbind(environment_songs) %>%
+  inner_join(songdata, by = c("artist", "song"))
+```
+
+# Data
+
+Tokenize
+```{r}
+selectedsongs_words <- selected_songs %>%
+  unnest_tokens(output = "word", input = "text", token = "words")
+```
+
+Remove stop words
+```{r}
+custom_stopwords <- stop_words %>%
+  rbind(data.frame(word    = c("1", "na", "uh", "ooh", "an"),
+                   lexicon = rep("custom", 5)))
+
+selectedsongs_words <- selectedsongs_words %>%
+  anti_join(custom_stopwords, by = "word")
+# Think about if adding custom stop words
+```
+
+Transform into DocumentTermMatrix
+```{r}
+selectedsongs_dtm <- selectedsongs_words %>%
+  count(artist, song, word, sort = TRUE) %>%
+  ungroup() %>%
+  cast_dtm(term = "word", document = "song", value = "n")
+```
+
+Perform Latent Dirichlet Allocation
+```{r}
+selectedsongs_lda <- LDA(selectedsongs_dtm, k = 2, control = list(seed = 978324))
+```
+
+Calculate probabilites of interest:
+- beta = per-topic-per-word probabilities
+- lambda = per-document-per-topic probabilities
+```{r}
+selectedsongs_beta <- tidy(selectedsongs_lda, matrix = "beta")
+selectedsongs_gamma <- tidy(selectedsongs_lda, matrix = "beta")
+```
+
+Plots
+```{r}
+selectedsongs_beta %>%
+  group_by(topic) %>%
+  top_n(10, beta) %>%
+  ungroup() %>%
+  arrange(topic, -beta) %>%
+  mutate(term  = reorder(term, beta),
+         topic = paste0("topic", topic)) %>%
+  ggplot(aes(term, beta, fill = factor(topic))) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~ topic, scales = "free") +
+  coord_flip()
+```
