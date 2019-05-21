@@ -1,0 +1,57 @@
+\begin{thebibliography}{}
+
+\bibitem [\protect \citeauthoryear {%
+Blei%
+, Ng%
+\BCBL {}\ \BBA {} Jordan%
+}{%
+Blei%
+\ \protect \BOthers {.}}{%
+{\protect \APACyear {2003}}%
+}]{%
+blei2003latent}
+\APACinsertmetastar {%
+blei2003latent}%
+\begin{APACrefauthors}%
+Blei, D\BPBI M.%
+, Ng, A\BPBI Y.%
+\BCBL {}\ \BBA {} Jordan, M\BPBI I.%
+\end{APACrefauthors}%
+\unskip\
+\newblock
+\APACrefYearMonthDay{2003}{}{}.
+\newblock
+{\BBOQ}\APACrefatitle {Latent dirichlet allocation} {Latent dirichlet
+  allocation}.{\BBCQ}
+\newblock
+\APACjournalVolNumPages{Journal of machine Learning
+  research}{3}{Jan}{993--1022}.
+\PrintBackRefs{\CurrentBib}
+
+\bibitem [\protect \citeauthoryear {%
+Hornik%
+\ \BBA {} Gr{\"u}n%
+}{%
+Hornik%
+\ \BBA {} Gr{\"u}n%
+}{%
+{\protect \APACyear {2011}}%
+}]{%
+hornik2011topicmodels}
+\APACinsertmetastar {%
+hornik2011topicmodels}%
+\begin{APACrefauthors}%
+Hornik, K.%
+\BCBT {}\ \BBA {} Gr{\"u}n, B.%
+\end{APACrefauthors}%
+\unskip\
+\newblock
+\APACrefYearMonthDay{2011}{}{}.
+\newblock
+{\BBOQ}\APACrefatitle {topicmodels: An R package for fitting topic models}
+  {topicmodels: An r package for fitting topic models}.{\BBCQ}
+\newblock
+\APACjournalVolNumPages{Journal of Statistical Software}{40}{13}{1--30}.
+\PrintBackRefs{\CurrentBib}
+
+\end{thebibliography}

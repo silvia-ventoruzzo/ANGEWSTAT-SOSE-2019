@@ -1,0 +1,225 @@
+\ProvidesPackage{beamerthemeI6dv} % this style was created by David Vilar
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\selectcolormodel{cmyk}
+\mode<presentation>
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% custom colors
+\definecolor{i6blue}{cmyk}{1,0.305,0,0.06}
+\definecolor{i6bluedark}{HTML}{0066BB}
+% http://www.colorsontheweb.com/colorwizard.asp#wizard, used start set: #0066cc
+\definecolor{i6colorscheme1}{HTML}{003366}  % e.g. for block title
+\definecolor{i6colorblockbg}{HTML}{003366}
+\definecolor{i6colorblockfg}{HTML}{FFFFFF}
+\definecolor{i6colorscheme2}{HTML}{FFFFFF}  % e.g. title in headline
+\definecolor{i6colorscheme3}{HTML}{FFFFFF}  % e.g. for poster background  #Farbe f�r ForumStat 606060
+\definecolor{i6colorscheme4}{HTML}{000000}
+\definecolor{i6colorschemeHeadline}{HTML}{99CC00}  % RM: Forum light blue
+\definecolor{i6colorschemeFootline}{HTML}{208D24}  % RM: Forum dark blue
+\definecolor{MainBlue}{HTML}{99CC00}  % for headline bg
+\definecolor{DMainBlue}{HTML}{003366}  % for headline bg
+\definecolor{i6colorschemeHeadlineTitle}{HTML}{000000}   %for Headline title
+\definecolor{i6colorschemeFootlineTitle}{HTML}{FFFFFF}   %for Footline title
+
+% headline colors and fonts
+\setbeamercolor{headline}{fg=white,bg=i6colorschemeHeadline}%
+\setbeamercolor{title in headline}{fg=i6colorschemeHeadlineTitle}%
+\setbeamercolor{author in headline}{fg=black}%
+\setbeamercolor{institute in headline}{fg=DMainBlue}%
+\setbeamercolor{logo in headline}{fg=black,bg=DMainBlue}%
+\setbeamercolor{separation line}{bg=i6colorschemeHeadline}%
+\setbeamercolor{upper separation line foot}{bg=DMainBlue}%
+\setbeamercolor{lower separation line head}{bg=DMainBlue}%
+
+% footline colors and fonts
+\setbeamercolor{footline}{fg=white,bg=DMainBlue}
+\setbeamercolor{footlineB}{fg=black,bg=MainBlue}
+%\setbeamerfont{footline}{fg=black, size=\normalsize}
+%\setbeamerfont{footlineB}{fg=black, size=\normalsize}
+
+% body colors and fonts
+\setbeamercolor*{normal text}{fg=black,bg=i6colorscheme3}
+
+% block environment
+\setbeamercolor*{block body}{bg=white,fg=black}%
+\setbeamercolor*{head forum}{bg=white,fg=white}%
+\setbeamercolor*{block title}{fg=i6colorblockfg,bg=i6colorblockbg}%
+\setbeamerfont{block title}{size=\large,series=\bf}%
+
+% example environment
+\setbeamercolor*{example title}{fg=white,bg=i6colorscheme1}
+%\setbeamerfont{example title}{size=\large,series=\bf,bg=i6colorscheme1,fg=white}
+
+
+%\setbeamercolor*{example body}{fg=white,bg=i6colorscheme4}
+%\setbeamercolor*{example title}{fg=white,bg=i6colorscheme1}
+
+
+%  \setbeamercolor{framesubtitle}{fg=ta3orange, bg=ta2gray}
+%  \setbeamercolor{author in head/foot}{fg=tabutter, bg=black}
+%  \setbeamercolor{title in head/foot}{bg=tabutter, fg=black}
+
+
+\setbeamercolor{alerted text}{fg=i6colorscheme1}
+%\setbeamercolor{structure}{fg=i6blue}
+
+%  \setbeamertemplate{itemize/enumerate body begin}{
+%  }
+%  \setbeamertemplate{itemize/enumerate body end}{
+%  }
+
+\setbeamertemplate{itemize items}[triangle]
+\setbeamertemplate{navigation symbols}{}  % no navigation on a poster
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\setbeamertemplate{block begin}{
+  \vskip.75ex
+  \begin{beamercolorbox}[leftskip=1cm,colsep*=.75ex]{block title}%
+    \usebeamerfont*{block title}\insertblocktitle
+  \end{beamercolorbox}%
+  {\ifbeamercolorempty[bg]{block body}{}{\nointerlineskip\vskip-0.5pt}}%
+  \usebeamerfont{block body}%
+  \begin{beamercolorbox}[colsep*=.75ex,sep=.75ex,vmode]{block body}%
+    \ifbeamercolorempty[bg]{block body}{\vskip-.25ex}{\vskip-.75ex}\vbox{}%
+  }
+  \setbeamertemplate{block end}{
+  \end{beamercolorbox}
+}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\setbeamertemplate{headline}{
+  \leavevmode
+
+  \begin{beamercolorbox}[wd=\paperwidth]{headline}\hspace*{-20mm}
+    \begin{columns}[T]
+%      \begin{column}{.30\paperwidth}
+%%        \vskip2cm
+%%         \raggedright
+%%
+%%		\hspace*{35mm}\pgfdeclareimage[height=65mm]{ameli}{logoBluets}\pgfuseimage{ameli} % LOGO �NDERN
+%%		\hspace*{4cm}
+%%		\pgfdeclareimage[height=65mm]{FP7-gen-RGB}{FP7-gen-RGB}\pgfuseimage{FP7-gen-RGB}
+%%
+%%        \hfil
+%%        \vskip1ex
+%      \end{column}
+     
+%      \begin{column}{.1\paperwidth}
+%      \rule{0mm}{85mm}
+%      \end{column}
+%     \hspace*{-85mm}
+      \begin{column}{.75\paperwidth}
+        \vskip1.7cm
+				\begin{center}
+        \raggedright
+        \usebeamercolor{title in headline}{\color{fg}\textbf{\LARGE{\inserttitle}}\\[2ex]}
+        \usebeamercolor{author in headline}{\color{fg}\large{\insertauthor}\\[1ex]}\vspace{-3mm}
+        \usebeamercolor{institute in headline}{\color{fg}\large{\insertinstitute}\\[1ex]}
+				\end{center}
+		\vskip1cm		
+      \end{column}
+
+
+
+     \begin{column}{.2\paperwidth}
+      	% \vspace{-1cm}
+      	     \title{\huge }
+      	  %\vspace{-2cm}   
+      \end{column}
+   \end{columns}
+  \end{beamercolorbox}
+  
+%%      \begin{beamercolorbox}[sep=0.1cm,wd=.1\paperwidth,center]{logo in headline}
+%%        \vskip2ex
+%%      \end{beamercolorbox}
+%%      \begin{beamercolorbox}[sep=1cm,wd=.7\paperwidth]{headline}
+%%        \usebeamercolor{title in headline}{\raggedright\color{fg}\textbf{\LARGE{\inserttitle}}\\[1ex]}
+%%        \usebeamercolor{author in headline}{\raggedright\color{fg}\large{\insertauthor}\\[1ex]}
+%%        \usebeamercolor{institute in headline}{\raggedright\color{fg}\large{\insertinstitute}\\[1ex]}
+%%      \end{beamercolorbox}%
+%%      \begin{beamercolorbox}[sep=0.1cm,wd=.18\paperwidth,center]{logo in headline}
+%%        \includegraphics[height=5cm]{logos/rwth-hks44}
+%%        \vskip2ex
+%%      \end{beamercolorbox}
+%%    \end{beamercolorbox}
+
+  \begin{beamercolorbox}[wd=\paperwidth]{lower separation line head}
+    \rule{0pt}{3mm}
+  \end{beamercolorbox}
+}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\setbeamertemplate{footline}{
+%  \begin{beamercolorbox}[wd=\paperwidth]{upper separation line foot}
+%    \rule{0pt}{2pt}
+%  \end{beamercolorbox}
+
+  \begin{beamercolorbox}[ht=4ex,leftskip=1cm,rightskip=1cm]{footline}%
+    \textsc{For further information}
+    \vskip1ex
+  \end{beamercolorbox}
+
+
+  \begin{beamercolorbox}[colsep*=.75ex,sep=.75ex,vmode]{block body}%
+{\color{black}
+    \begin{columns}[T]
+      \begin{column}{.04\paperwidth}
+      \end{column}
+      \vspace{-5cm}
+      \begin{column}{.28\paperwidth}
+      \vskip1cm
+       \pgfdeclareimage[width=0.2\paperwidth]{FuBerlin}{FuBerlin}\pgfuseimage{FuBerlin}
+      \end{column}
+      
+      \begin{column}{.37\paperwidth}
+    \vskip1ex
+%\hspace{-2cm}
+ \large Paul Walter, Marcus Gro{\ss},  Timo Schmid  \normalsize
+    \vskip1ex
+paul.walter@fu-berlin.de, marcus.gross@fu-berlin.de timo.schmid@fu-berlin.de\\
+      Department of Economics\\
+        Garystr. 21 
+        D-14195 Berlin 
+     \end{column}
+      
+      \begin{column}{.47\paperwidth}
+          \vskip1ex
+       \large Nikos Tzavidis \normalsize
+           \vskip1ex
+ 		N.TZAVIDIS@soton.ac.uk\\
+		Department of Social Statistics \& Demography\\
+		SO17 1BJ Southampton  		
+      \end{column}
+
+      \end{columns}
+}
+  \end{beamercolorbox}
+
+  \begin{beamercolorbox}[wd=\paperwidth]{upper separation line foot}
+    \rule{0pt}{3mm}
+  \end{beamercolorbox}
+
+  \begin{beamercolorbox}[ht=4ex,leftskip=1cm,rightskip=1cm]{footlineB}%
+   Freie Universit{\"a}t Berlin:  \texttt{http://www.wiwiss.fu-berlin.de}
+    %\hfill BLUE-ETS:  \texttt{http://www.blue-ets.istat.it}
+    \vskip1ex
+  \end{beamercolorbox}
+
+%  \begin{beamercolorbox}[wd=\paperwidth]{lower separation line foot}
+%    ~\\[2mm]
+%  \end{beamercolorbox}
+}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\mode<all>
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Local Variables:
+%%% mode: latex
+%%% TeX-master: "poster"
+%%% TeX-PDF-mode: t
+%%% End:
