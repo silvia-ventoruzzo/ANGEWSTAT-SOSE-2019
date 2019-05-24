@@ -1,5 +1,5 @@
 ---
-title: "Song lyrics"
+title: "Song songdata"
 author: "Silvia Ventoruzzo"
 date: "10/5/2019"
 output: html_document
@@ -16,123 +16,240 @@ Packages & functions
 library(tidyverse)
 library(tidytext)
 library(DataExplorer)
+library(gridExtra)
 library(tm)
 library(topicmodels)
 library(gtools)
-
+library(gtable)
+library(quanteda)
+library(stopwords)
+library(reshape2)
 library(cld3)
 ```
 
 Load dataset
 ```{r}
-lyrics <- read_csv("./Data/lyrics.csv")
-songdata <- read_csv("./Data/songdata.csv")
-
-lyrics <- lyrics %>%
-  rename(text = lyrics)
+songs_genre <- read_csv("./Data/lyrics.csv.zip")
+songs       <- read_csv("./Data/songdata.csv.zip")
 ```
 
-# Clean dataset
+Join datasets
 ```{r}
-plot_missing(lyrics)
+# Clean before joining
+songs_genre <- songs_genre %>%
+  select(-index, -lyrics) %>%
+  mutate(song   = gsub("-", " ", song),
+         artist = gsub("-", " ", artist),
+         artist = ifelse(artist == "beyonce knowles", "beyonce", artist)) %>%
+  filter(genre != "Not Available") %>%
+  mutate_if(is.character, tolower)
+
+songs <- songs %>%
+  select(-link) %>%
+  filter(!is.na(text)) %>%
+  mutate_if(!(grepl("text", names(.))), tolower)
+
+# Join
+songdata <- songs %>%
+  inner_join(songs_genre, by = c("artist", "song"))
+
+rm("songs_genre", "songs")
 ```
 
-lyrics
+We would like to keep only 200 songs, but at the moment we have 11555. We initially look at the language, restricting our dataset of only songs in English, and length of the song, keeping only songs with length bigger than 1st quantile.
 ```{r}
-lyrics <- lyrics %>%
-  filter(!is.na(text))
-
-# Length
-lyrics <- lyrics %>%
-  mutate(text_length = str_length(lyrics$text))
-
-lyrics %>%
-  ggplot() +
-  geom_boxplot(aes(x = factor(0), y = text_length)) +
-  coord_flip()
-
-lyrics <- lyrics %>%
-  filter(text_length > quantile(text_length, 0.25))
-
 # Language
-lyrics <- lyrics %>%
+songdata <- songdata %>%
   mutate(text_language = detect_language(text))
 
-lyrics %>%
+songdata %>%
   count(text_language) %>%
   mutate(text_language = reorder(text_language, -n)) %>%
   ggplot() +
   geom_bar(aes(x = text_language, y = n), stat = "identity")
 
-lyrics <- lyrics %>%
-  filter(text_language == "en")
+songdata <- songdata %>%
+  filter(text_language == "en") %>%
+  select(-text_language)
 
-lyrics <- lyrics %>%
-  mutate(text = tolower(text),
-         text = removePunctuation(text),
-         text = removeNumbers(text),
-         text = stripWhitespace(text),
-         text = stemDocument(text))
-```
+# Length
+songdata <- songdata %>%
+  mutate(text_length = str_length(songdata$text))
 
-song
-
-```{r}
-lyrics <- lyrics %>%
-  mutate(song = gsub("-", " ", song))
-```
-
-artist
-
-```{r}
-lyrics <- lyrics %>%
-  mutate(artist = gsub("-", " ", artist))
-```
-
-Genre
-```{r}
-lyrics <- lyrics %>%
-  filter(genre != "Not Available",
-         genre != "Other")
-```
-
-year
-```{r}
-lyrics <- lyrics %>%
-  filter(year >= 1970)
-```
-
-# Univariate distributions
-```{r}
-lyrics %>%
+songdata %>%
   ggplot() +
-  geom_bar(aes(x = year)) +
-  labs(title = "Distribution of songs across the years")
+  geom_boxplot(aes(x = factor(0), y = text_length)) +
+  coord_flip()
 
-lyrics %>%
+songdata <- songdata %>%
+  filter(text_length > quantile(text_length, 0.25)) %>%
+  select(-text_length)
+```
+
+We now look at the distributions of the variables artist, year and genre.
+```{r}
+# Year
+songdata %>%
+  count(year) %>%
+  mutate(occurences = n/sum(n)) %>%
+  ggplot() +
+  geom_bar(aes(x = year, y = occurences), stat = "identity") +
+  scale_x_continuous(breaks = seq(min(songdata$year), max(songdata$year), 5)) +
+  scale_y_continuous(labels = scales::percent_format()) +
+  labs(title    = "Distribution of song years",
+       subtitle = "Initial data")
+
+# Genre
+songdata %>%
   count(genre) %>%
-  mutate(genre = reorder(genre, -n)) %>%
+  mutate(occurences = n/sum(n)) %>%
   ggplot() +
-  geom_bar(aes(x = genre, y = n), stat = "identity") +
-  labs(y = "count", 
-       title = "Distribution of songs across music genres")
+  geom_bar(aes(x = reorder(genre, -occurences), y = occurences), stat = "identity") +
+  scale_y_continuous(labels = scales::percent_format()) +
+  labs(x        = "genre",
+       title    = "Distribution of music genres",
+       subtitle = "Initial data")
+
+# Artist
+songdata %>%
+  count(artist) %>%
+  mutate(occurences = n/sum(n)) %>%
+  ggplot() +
+  geom_bar(aes(x = reorder(artist, occurences), y = occurences), stat = "identity") +
+  scale_y_continuous(labels = scales::percent_format()) +
+  coord_flip() +
+  labs(x        = "artist",
+       title    = "Distribution of artists",
+       subtitle = "Initial data")
 ```
 
-# Bivariate distributions
-
-genre - text_length
+We can see that great part of the songs are from 2005 onwards. We will therefore firstly restrict the dataset to the songs from 2010. We will furthermore only keep songs of the 5 most common music genres (pop, rock, hip-hop, jazz, country).
 ```{r}
-lyrics %>%
-  count(genre, text_length) %>%
-  arrange(genre, -text_length) %>%
+songdata <- songdata %>%
+  filter(year >= 2010,
+         genre %in% c("pop", "rock", "hip-hop", "jazz", "country"))
+```
+
+We still have too many songs (1483). We will thus now look at artists. We wish to create some variability in the texts, therefore it would be good to have a mixture of different artists. I would however prefer having famous artists, to make the project more relatable, but also considering a mix of genres. Following artists will be kept:
+- adele
+- aerosmith
+- avril lavigne
+- backstreet boys
+- billie holiday
+- bon jovi
+- coldplay
+- depeche mode
+- dolly parton
+- drake
+- ed sheeran
+- ella fitzgerald
+- eminem
+- enrique iglesias
+- evanescence
+- foo fighters
+- fall out boy
+- george jones
+```{r}
+set.seed(62781649)
+songdata <- songdata %>%
+  filter(artist %in% c("adele", "aerosmith", "avril lavigne", "backstreet boys", "billie holiday", "bon jovi", "coldplay", "depeche mode", "dolly parton", "drake", "ed sheeran", "ella fitzgerald", "eminem", "evanescence", "foo fighters", "fall out boy", "george jones")) %>%
+  sample_n(200)
+```
+
+Produce now final plots
+```{r}
+distribution_plots <- list()
+distribution_plots[["artist"]] <- songdata %>%
+  count(artist) %>%
+  mutate(occurences = n/sum(n)) %>%
   ggplot() +
-  geom_boxplot(aes(x = genre, y = text_length)) +
-  ylim(0, 10000)
+  geom_bar(aes(x = reorder(artist, occurences), y = occurences), stat = "identity", fill = "chartreuse4") +
+  scale_y_continuous(labels = scales::percent_format()) +
+  theme(axis.title.y = element_text(size = 12),
+        axis.text.y  = element_text(size = 7),
+        axis.title.x = element_blank()) +
+  labs(x = "artist") +
+  coord_flip()
+distribution_plots[["genre"]] <- songdata %>%
+  count(genre) %>%
+  mutate(occurences = n/sum(n)) %>%
+  ggplot() +
+  geom_bar(aes(x = reorder(genre, occurences), y = occurences), stat = "identity", fill = "chartreuse4") +
+  scale_y_continuous(labels = scales::percent_format()) +
+  theme(axis.title.y = element_text(size = 12),
+        axis.title.x = element_blank()) +
+  labs(x = "genre") +
+  coord_flip()
+distribution_plots[["year"]] <- songdata %>%
+  count(year) %>%
+  mutate(occurences = n/sum(n)) %>%
+  ggplot() +
+  geom_bar(aes(x = year, y = occurences), stat = "identity", fill = "chartreuse4") +
+  scale_x_continuous(breaks = seq(min(songdata$year), max(songdata$year), 1),
+                     trans  = "reverse") +
+  scale_y_continuous(labels = scales::percent_format()) +
+  theme(axis.title.y = element_text(size = 12),
+        axis.title.x = element_blank()) +
+  coord_flip()
+grid.newpage()
+grid.draw(rbind(ggplotGrob(distribution_plots[["artist"]]), ggplotGrob(distribution_plots[["genre"]]), ggplotGrob(distribution_plots[["year"]]), size = "first"))
+rm(distribution_plots)
+```
+
+Look at summed percentages
+```{r}
+# Artist
+songdata %>%
+  count(artist) %>%
+  arrange(-n) %>%
+  mutate(perc = n/sum(n), 
+         cumsum = cumsum(perc))
+
+# Genre
+songdata %>%
+  count(genre) %>%
+  arrange(n) %>%
+  mutate(perc = n/sum(n), 
+         cumsum = cumsum(perc))
+```
+
+Combination artist-genre
+Each artist is associated to only one genre
+```{r}
+songdata %>%
+  count(artist, genre) %>%
+  count(artist)
+```
+
+Text length
+```{r}
+songdata %>%
+  mutate(text_length = str_length(songdata$text)) %>%
+  ggplot() +
+  geom_boxplot(aes(x = factor(0), y = text_length), fill = "chartreuse4") +
+  theme(axis.title.y = element_blank(),
+        axis.text.y  = element_blank(),
+        axis.ticks.y = element_blank(),
+        axis.title.x = element_text(size = 12)) +
+  labs(y = "text length") +      
+  coord_flip() +
+  facet_wrap(~genre)
+
+```
+
+text
+```{r}
+# songdata <- songdata %>%
+#   mutate(text = tolower(text),
+#          text = removePunctuation(text),
+#          text = removeNumbers(text),
+#          text = stripWhitespace(text),
+#          text = stemDocument(text))
 ```
 
 genre - year
 ```{r}
-lyrics %>%
+songdata %>%
   count(year, genre) %>%
   group_by(year) %>%
   mutate(percentage = n/sum(n)) %>%
@@ -140,12 +257,12 @@ lyrics %>%
   ggplot() +
   geom_line(aes(x = year, y = percentage, color = genre))
 
-# From: https://towardsdatascience.com/text-analytics-topic-modelling-on-music-genres-song-lyrics-deb82c86caa2
-lyrics %>% 
+# From: https://towardsdatascience.com/text-analytics-topic-modelling-on-music-genres-song-songdata-deb82c86caa2
+songdata %>% 
   mutate(fiveyears = as.character(year) %>%
                       paste("01", "01", sep = "-") %>%
                       as.Date() %>%
-                      lubridate::floor_date("2 years")) %>%
+                      lubridate::floor_date("y year")) %>%
   count(fiveyears, genre) %>% 
   group_by(fiveyears) %>%
   mutate(freq = round(n/sum(n), 2)) %>% 
@@ -157,73 +274,69 @@ lyrics %>%
   scale_y_continuous(labels = scales::percent_format()) 
 ```
 
-year - text_length
+
+
+
+# Data preparation
+
+Tokenization
 ```{r}
-lyrics %>%
-  group_by(artist) %>%
-  summarize(genres = n_distinct(genre)) %>%
-  ungroup() %>%
-  filter(genres > 1)
-
-lyrics %>%
-  filter(year >= 2000,
-         genre %in% c("Rock", "Pop", "Hip-Hop", "Electronic", "R&B")) %>%
-  count(genre) %>%
-  mutate(percentage = n/sum(n),
-         genre = reorder(genre, -percentage)) %>%
-  ggplot() +
-  geom_bar(aes(x = genre, y = percentage), stat = "identity") +
-  scale_y_continuous(labels = scales::percent_format()) +
-  labs(title = "Distribution of songs across music genres")
-
-```
-
-
-
-
-# Data
-
-Tokenize
-```{r}
-lyrics_words <- lyrics %>%
+songdata_words <- songdata %>%
   unnest_tokens(output = "word", input = "text", token = "words")
 ```
 
 Remove stop words
 ```{r}
-custom_stopwords <- stop_words %>%
-  rbind(data.frame(word    = c("1", "na", "uh", "ooh", "an"),
-                   lexicon = rep("custom", 5)))
-
-lyrics_words <- lyrics_words %>%
-  anti_join(custom_stopwords, by = "word")
+# custom_stopwords <- stop_words %>%
+#   rbind(data.frame(word    = c("1", "na", "uh", "ooh", "an"),
+#                    lexicon = rep("custom", 5)))
+# 
+# songdata_words <- songdata_words %>%
+#   anti_join(custom_stopwords, by = "word")
 # Think about if adding custom stop words
 ```
 
 Transform into DocumentTermMatrix
 ```{r}
-lyrics_dtm <- lyrics_words %>%
-  count(artist, song, word, sort = TRUE) %>%
-  ungroup() %>%
-  cast_dtm(term = "word", document = "song", value = "n")
+# songdata_dtm <- songdata_words %>%
+#   count(artist, song, word, sort = TRUE) %>%
+#   ungroup() %>%
+#   cast_dtm(term = "word", document = "song", value = "n")
+
+stopwords <- lapply(stopwords_getsources()[stopwords_getsources() != "misc"], 
+                    function(x) stopwords::stopwords(language = "en", source = x)) %>%
+  unlist()
+
+songdata_tokens <- songdata %>%
+  corpus() %>%
+  tokens(what = "word",
+         remove_numbers = TRUE, remove_punct = TRUE,
+         remove_symbols = TRUE, remove_separators = TRUE)
+
+docnames(songdata_tokens) <- paste(songdata$artist, songdata$song, sep = ";")
+
+songdata_dtm <- songdata_tokens %>%
+  dfm(tolower = TRUE, stem = TRUE, remove = stopwords)
+
+rm("stopwords", "songdata_tokens")
 ```
 
 Perform Latent Dirichlet Allocation
 ```{r}
-lyrics_lda <- LDA(lyrics_dtm, k = 2, control = list(seed = 978324))
+songdata_lda <- LDA(songdata_dtm, k = 5, control = list(seed = 978324))
 ```
 
 Calculate probabilites of interest:
 - beta = per-topic-per-word probabilities
 - lambda = per-document-per-topic probabilities
 ```{r}
-lyrics_beta <- tidy(lyrics_lda, matrix = "beta")
-lyrics_gamma <- tidy(lyrics_lda, matrix = "gamma")
+songdata_beta <- tidy(songdata_lda, matrix = "beta")
+songdata_gamma <- tidy(songdata_lda, matrix = "gamma")
 ```
 
 Words in topics
 ```{r}
-lyrics_beta %>%
+songdata_beta %>%
   group_by(topic) %>%
   top_n(10, beta) %>%
   ungroup() %>%
@@ -238,9 +351,10 @@ lyrics_beta %>%
 
 Gamma for genres (= documents)
 ```{r}
-genre_gamma <- lyrics %>%
-  select(artist, song, genre) %>%
-  left_join(lyrics_gamma, by = c("song" = "document"))
+genre_gamma <- songdata_gamma %>%
+  separate(document, into = c("artist", "song"), sep = ";") %>%
+  inner_join(songdata, by = c("artist", "song")) %>%
+  select(-year, -text)
 
 genre_gamma %>%
   mutate(genre = reorder(genre, gamma * topic)) %>%
@@ -252,4 +366,16 @@ genre_gamma %>%
   labs(col="Topics",
        y = "Probabilities") +
   facet_wrap(~ genre)
+
+
+genre_gamma %>%
+  mutate(genre = reorder(genre, gamma * topic)) %>%
+  ggplot(aes(x = gamma, colour = factor(topic))) +
+  geom_line(stat = "count") +
+  labs(y = "Probability", x = "Topic", 
+       title = "Topic probabilities per music genre", 
+       subtitle = "") +
+  labs(col="Topics",
+       y = "Probabilities") +
+  facet_wrap(~genre)
 ```
