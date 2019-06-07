@@ -17,6 +17,7 @@ library(tidyverse)
 library(tidytext)
 library(DataExplorer)
 library(gridExtra)
+library(grid)
 library(tm)
 library(topicmodels)
 library(gtools)
@@ -24,6 +25,7 @@ library(gtable)
 library(quanteda)
 library(stopwords)
 library(reshape2)
+library(ldatuning)
 library(cld3)
 ```
 
@@ -37,7 +39,7 @@ Join datasets
 ```{r}
 # Clean before joining
 songs_genre <- songs_genre %>%
-  select(-index, -lyrics) %>%
+  dplyr::select(-index, -lyrics) %>%
   mutate(song   = gsub("-", " ", song),
          artist = gsub("-", " ", artist),
          artist = ifelse(artist == "beyonce knowles", "beyonce", artist)) %>%
@@ -45,7 +47,7 @@ songs_genre <- songs_genre %>%
   mutate_if(is.character, tolower)
 
 songs <- songs %>%
-  select(-link) %>%
+  dplyr::select(-link) %>%
   filter(!is.na(text)) %>%
   mutate_if(!(grepl("text", names(.))), tolower)
 
@@ -70,7 +72,7 @@ songdata %>%
 
 songdata <- songdata %>%
   filter(text_language == "en") %>%
-  select(-text_language)
+  dplyr::select(-text_language)
 
 # Length
 songdata <- songdata %>%
@@ -83,7 +85,7 @@ songdata %>%
 
 songdata <- songdata %>%
   filter(text_length > quantile(text_length, 0.25)) %>%
-  select(-text_length)
+  dplyr::select(-text_length)
 ```
 
 We now look at the distributions of the variables artist, year and genre.
@@ -191,7 +193,7 @@ distribution_plots[["year"]] <- songdata %>%
   theme(axis.title.y = element_text(size = 12),
         axis.title.x = element_blank()) +
   coord_flip()
-grid.newpage()
+#grid.newpage()
 grid.draw(rbind(ggplotGrob(distribution_plots[["artist"]]), ggplotGrob(distribution_plots[["genre"]]), ggplotGrob(distribution_plots[["year"]]), size = "first"))
 rm(distribution_plots)
 ```
@@ -257,33 +259,40 @@ songdata %>%
   ggplot() +
   geom_line(aes(x = year, y = percentage, color = genre))
 
-# From: https://towardsdatascience.com/text-analytics-topic-modelling-on-music-genres-song-songdata-deb82c86caa2
-songdata %>% 
-  mutate(fiveyears = as.character(year) %>%
-                      paste("01", "01", sep = "-") %>%
-                      as.Date() %>%
-                      lubridate::floor_date("y year")) %>%
-  count(fiveyears, genre) %>% 
-  group_by(fiveyears) %>%
-  mutate(freq = round(n/sum(n), 2)) %>% 
-  # filter(genre %in% c("Country", "Hip-Hop", "Metal", "Pop", "Rock")) %>% 
-  ggplot(aes(fiveyears, freq, colour = genre)) +
-  # geom_line() +
-  geom_smooth(se = FALSE) +
-  labs(x = "year", y = "smoothed")+
-  scale_y_continuous(labels = scales::percent_format()) 
+# # From: https://towardsdatascience.com/text-analytics-topic-modelling-on-music-genres-song-songdata-deb82c86caa2
+# songdata %>% 
+#   mutate(fiveyears = as.character(year) %>%
+#                       paste("01", "01", sep = "-") %>%
+#                       as.Date() %>%
+#                       lubridate::floor_date("y year")) %>%
+#   count(fiveyears, genre) %>% 
+#   group_by(fiveyears) %>%
+#   mutate(freq = round(n/sum(n), 2)) %>% 
+#   # filter(genre %in% c("Country", "Hip-Hop", "Metal", "Pop", "Rock")) %>% 
+#   ggplot(aes(fiveyears, freq, colour = genre)) +
+#   # geom_line() +
+#   geom_smooth(se = FALSE) +
+#   labs(x = "year", y = "smoothed")+
+#   scale_y_continuous(labels = scales::percent_format()) 
 ```
-
-
-
 
 # Data preparation
 
-Tokenization
+Tokenization for analysis
 ```{r}
 songdata_words <- songdata %>%
   unnest_tokens(output = "word", input = "text", token = "words")
 ```
+
+Most common words per genre
+```{r}
+songdata_words %>%
+  count(genre, word) %>%
+  top_n(10, n)
+  
+```
+
+
 
 Remove stop words
 ```{r}
@@ -296,16 +305,80 @@ Remove stop words
 # Think about if adding custom stop words
 ```
 
-Transform into DocumentTermMatrix
+Stopwords
+```{r}
+stopwords <- lapply(stopwords_getsources()[stopwords_getsources() != "misc"], 
+                    function(x) stopwords::stopwords(language = "en", source = x)) %>%
+  unlist()
+```
+
+# Find best number of topics
+
+Perplexity for hold-out set
+```{r}
+# Train DTM
+set.seed(4324663) 
+sampling <- sample(1:nrow(songdata), replace = FALSE,size = nrow(songdata)*0.7)
+train_data <- songdata[sampling,]
+DTM_train <- train_data %>%
+  corpus() %>%
+  tokens(what = "word",
+         remove_numbers = TRUE, remove_punct = TRUE,
+         remove_symbols = TRUE, remove_separators = TRUE)
+docnames(DTM_train) <- paste(train_data$artist, train_data$song, sep = ";")
+DTM_train <- DTM_train %>%
+  dfm(tolower = TRUE, stem = TRUE, remove = stopwords) %>%
+  convert(to = "tm")
+
+# Test DTM
+test_data <- songdata[-sampling,]
+DTM_test <- test_data %>%
+  corpus() %>%
+  tokens(what = "word",
+         remove_numbers = TRUE, remove_punct = TRUE,
+         remove_symbols = TRUE, remove_separators = TRUE)
+docnames(DTM_test) <- paste(test_data$artist, test_data$song, sep = ";")
+DTM_test <- DTM_test %>%
+  dfm(tolower = TRUE, stem = TRUE, remove = stopwords) %>%
+  convert(to = "tm")
+
+rm("sampling")
+
+# Up to 20
+perplexity_df <- data.frame(topics = numeric(), train = numeric(), test = numeric())
+topics <- c(2:20)
+
+# set.seed(4324663)
+for (i in topics) {
+  cat(paste(i, "topics..."))
+  fitted <- LDA(DTM_train, k = i, method = "VEM",
+                control = list(seed = 4324663))
+  perplexity_df[i-1,1]  <- i
+  perplexity_df[i-1,2]  <- perplexity(fitted, newdata = DTM_train)
+  perplexity_df[i-1,3]  <- perplexity(fitted, newdata = DTM_test)
+  cat(paste("done", "\n"))
+}
+
+perplexity_df %>%
+  gather(key = "set", value = "perplexity", train, test) %>%
+  ggplot() +
+  geom_line(aes(x = topics, y = perplexity, color = set)) +
+  scale_x_continuous(breaks = perplexity_df$topics) +
+  scale_color_manual(values=c("#E69F00", "#56B4E9")) +
+  labs(x = "number of topics")
+
+perplexity_df %>%
+  filter(topics %in% seq(2, 5))
+
+rm("DTM_test", "DTM_train", "fitted", "test_data", "train_data", "i", "topics")
+```
+
+Transform all dataset into DocumentTermMatrix
 ```{r}
 # songdata_dtm <- songdata_words %>%
 #   count(artist, song, word, sort = TRUE) %>%
 #   ungroup() %>%
 #   cast_dtm(term = "word", document = "song", value = "n")
-
-stopwords <- lapply(stopwords_getsources()[stopwords_getsources() != "misc"], 
-                    function(x) stopwords::stopwords(language = "en", source = x)) %>%
-  unlist()
 
 songdata_tokens <- songdata %>%
   corpus() %>%
@@ -316,37 +389,160 @@ songdata_tokens <- songdata %>%
 docnames(songdata_tokens) <- paste(songdata$artist, songdata$song, sep = ";")
 
 songdata_dtm <- songdata_tokens %>%
-  dfm(tolower = TRUE, stem = TRUE, remove = stopwords)
+  dfm(tolower = TRUE, stem = TRUE, remove = stopwords) %>%
+  convert(to = "tm")
 
-rm("stopwords", "songdata_tokens")
+rm("songdata_tokens", "stopwords")
 ```
 
-Perform Latent Dirichlet Allocation
+Rest of metrics
 ```{r}
-songdata_lda <- LDA(songdata_dtm, k = 5, control = list(seed = 978324))
+# Up to 20
+topic_numbers <- FindTopicsNumber(dtm     = songdata_dtm,
+                                  topics  = seq(2, 20, by = 1),
+                                  metrics = c("Griffiths2004", "CaoJuan2009", "Arun2010", "Deveaud2014"),
+                                  method  = "VEM",
+                                  control = list(seed = 4324663),
+                                  verbose = TRUE)
+
+# FindTopicsNumber_plot(topic_numbers)
+topic_numbers %>%
+  mutate_if(!grepl("topics", names(.)), function(x) 
+                            scales::rescale(x, to = c(0, 1), from = range(x, na.rm = TRUE, finite = TRUE))) %>%
+  gather(key = "metric", value = "value", CaoJuan2009, Arun2010, Deveaud2014) %>%
+  mutate(optimization = ifelse(metric %in% c("CaoJuan2009", "Arun2010"), "minimize", "maximize")) %>%
+  ggplot(aes(x = topics, y = value, color = metric)) +
+  geom_line(stat = "identity") +
+  geom_point(aes(shape = metric), size = 3) +
+  scale_x_continuous(breaks = topic_numbers$topics) +
+  labs(x = "number of topics", y = NULL) +
+  facet_grid(optimization ~ .)
+
+# Optimal values
+topic_numbers %>%
+  mutate(Deveaud2014 = ifelse(is.infinite(Deveaud2014), NA, Deveaud2014)) %>%
+  mutate(CaoJuan2009min = min(CaoJuan2009),
+         Arun2010min    = min(Arun2010),
+         Deveaud2014max = max(Deveaud2014, na.rm = TRUE)) %>%
+  filter(CaoJuan2009 == CaoJuan2009min |
+         Arun2010    == Arun2010min |
+         Deveaud2014 == Deveaud2014max)
+
+# Up to 200 (all observations)
+topic_numbers_all <- FindTopicsNumber(dtm     = songdata_dtm,
+                                      topics  = seq(2, ndoc(songdata_dtm), by = 1),
+                                      metrics = c("Griffiths2004", "CaoJuan2009", "Arun2010", "Deveaud2014"),
+                                      method  = "VEM",
+                                      control = list(seed = 4324663),
+                                      verbose = TRUE)
+
+
+save.image(file = "topicsnumber.RData")
+
+# FindTopicsNumber_plot(topic_numbers)
+topic_numbers_all %>%
+  # mutate(Deveaud2014 = ifelse(is.infinite(Deveaud2014), NA, Deveaud2014)) %>%
+  mutate_if(!grepl("topics", names(.)),
+            function(x) scales::rescale(x, to = c(0, 1), from = range(x, na.rm = TRUE, finite = TRUE))) %>%
+  gather(key = "metric", value = "value", CaoJuan2009, Arun2010, Deveaud2014) %>%
+  mutate(optimization = ifelse(metric %in% c("CaoJuan2009", "Arun2010"), "minimize", "maximize")) %>%
+  ggplot(aes(x = topics, y = value, color = metric)) +
+  geom_line(stat = "identity") +
+  geom_point(aes(shape = metric), size = 1) +
+  scale_x_continuous(breaks = seq(0, max(topic_numbers_all$topics), by = 10)) +
+  guides(color = FALSE, shape = FALSE) +
+  labs(x = "number of topics", y = NULL) +
+  facet_grid(optimization ~ .)
+
+topic_numbers_all <- topic_numbers_all %>%
+  mutate(Deveaud2014na = ifelse(is.infinite(Deveaud2014), NA, Deveaud2014))
+
+# data.frame(
+#   metric = c("CaoJuan2009", "Arun2010", "Deveaud2014"),
+#   value  = c(topic_numbers_all[topic_numbers_all$CaoJuan2009 == min(topic_numbers_all$CaoJuan2009),
+#                                names(topic_numbers_all == "CaoJuan2009")],
+#              topic_numbers_all[topic_numbers_all$Arun2010 == min(topic_numbers_all$Arun2010),
+#                                names(topic_numbers_all == "Arun2010")],
+#              topic_numbers_all[topic_numbers_all$Deveaud2014 == max(topic_numbers_all$Deveaud2014na, na.rm = TRUE),
+#                                names(topic_numbers_all == "Deveaud2014na")]),
+#   topics = c(topic_numbers_all[topic_numbers_all$CaoJuan2009 == min(topic_numbers_all$CaoJuan2009),
+#                                names(topic_numbers_all == "topics")],
+#              topic_numbers_all[topic_numbers_all$Arun2010 == min(topic_numbers_all$Arun2010),
+#                                names(topic_numbers_all == "topics")],
+#              topic_numbers_all[topic_numbers_all$Deveaud2014 == max(topic_numbers_all$Deveaud2014na, na.rm = TRUE),
+#                                names(topic_numbers_all == "topics")]))
+
+topic_numbers_all %>%
+  mutate(Deveaud2014 = ifelse(is.infinite(Deveaud2014), NA, Deveaud2014)) %>%
+  mutate(CaoJuan2009min = min(CaoJuan2009),
+         Arun2010min    = min(Arun2010),
+         Deveaud2014max = max(Deveaud2014, na.rm = TRUE)) %>%
+  filter(CaoJuan2009 == CaoJuan2009min |
+         Arun2010 == Arun2010min |
+         Deveaud2014 == Deveaud2014max)
+
+# rm("topic_numbers", "topic_numbers")
+
+```
+
+LDA with values of k from 2 to 5
+
+```{r}
+songdata_lda <- list()
+
+for (k in 2:5) {
+  
+  cat(paste("LDA with k =", k, "..."))
+  
+  songdata_lda[[k]] <- LDA(songdata_dtm, k = k, method = "VEM", control = list(seed = 978324))
+  
+  cat("done\n")
+  
+}
+
+rm(k)
+
+save.image(file = "lda_25k.RData")
 ```
 
 Calculate probabilites of interest:
 - beta = per-topic-per-word probabilities
 - lambda = per-document-per-topic probabilities
 ```{r}
-songdata_beta <- tidy(songdata_lda, matrix = "beta")
-songdata_gamma <- tidy(songdata_lda, matrix = "gamma")
+# beta
+songdata_beta <- list()
+for (k in 2:length(songdata_lda)) {
+  songdata_beta[[k]] <- tidy(songdata_lda[[k]], matrix = "beta")
+}
+
+# gamma
+songdata_gamma <- list()
+for (k in 2:length(songdata_lda)) {
+  songdata_gamma[[k]] <- tidy(songdata_lda[[k]], matrix = "gamma")
+}
 ```
 
 Words in topics
 ```{r}
-songdata_beta %>%
-  group_by(topic) %>%
-  top_n(10, beta) %>%
-  ungroup() %>%
-  arrange(topic, -beta) %>%
-  mutate(term  = reorder(term, beta),
-         topic = paste0("topic", topic)) %>%
-  ggplot(aes(term, beta, fill = factor(topic))) +
-  geom_col(show.legend = FALSE) +
-  facet_wrap(~ topic, scales = "free") +
-  coord_flip()
+for (k in 2:length(songdata_beta)) {
+  plot <- songdata_beta[[k]] %>%
+    group_by(topic) %>%
+    top_n(10, beta) %>%
+    ungroup() %>%
+    arrange(topic, -beta) %>%
+    mutate(term  = reorder(term, topic),
+           topic = paste0("topic", topic)) %>%
+    ggplot(aes(reorder(term, beta), beta, fill = factor(topic))) +
+    geom_col(show.legend = FALSE) +
+    labs(x = "terms") +
+    facet_wrap(~ topic, scales = "free_y") +
+    theme(axis.title.x = element_blank()) +
+    coord_flip()
+  
+  print(plot)
+}
+
+rm(plot)
 ```
 
 Gamma for genres (= documents)
@@ -354,7 +550,7 @@ Gamma for genres (= documents)
 genre_gamma <- songdata_gamma %>%
   separate(document, into = c("artist", "song"), sep = ";") %>%
   inner_join(songdata, by = c("artist", "song")) %>%
-  select(-year, -text)
+  dplyr::select(-year, -text)
 
 genre_gamma %>%
   mutate(genre = reorder(genre, gamma * topic)) %>%

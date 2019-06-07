@@ -1,0 +1,38 @@
+---
+title: "Dirichlet distribution"
+author: "Silvia Ventoruzzo"
+date: "2/6/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Packages
+```{r}
+library(Compositional)
+library(MCMCpack)
+library(tidyverse)
+library(gridExtra)
+```
+
+Create Dirichlet distributed points
+
+```{r}
+# Low values of alpha
+draws_low <- rdirichlet(200, c(.1,.1,.1))
+
+# Middle values of alpha
+draws_mid <- rdirichlet(200, c(1,1,1))
+
+# High values of alpha
+draws_high <- rdirichlet(200, c(10,10,10))
+```
+
+Draw graph
+```{r}
+contour_low  <- bivt.contour(draws_low)
+contour_mid  <- bivt.contour(draws_mid)
+contour_high <- bivt.contour(draws_high)
+```
