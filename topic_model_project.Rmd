@@ -28,6 +28,7 @@ library(reshape2)
 library(ldatuning)
 library(cld3)
 library(SnowballC)
+library(xtable)
 ```
 
 Load dataset
@@ -161,50 +162,55 @@ songdata <- songdata %>%
 
 Produce now final plots
 ```{r}
-distribution_plots <- list()
-distribution_plots[["artist"]] <- songdata %>%
+genre <- songdata %>%
+  count(genre) %>%
+  ungroup() %>%
+  rename(level = genre) %>%
+  mutate(occurences = n/sum(n),
+         level      = reorder(level, occurences),
+         variable   = "genre")
+artist <- songdata %>%
   count(artist) %>%
-  mutate(occurences = n/sum(n)) %>%
+  ungroup() %>%
+  rename(level = artist) %>%
+  mutate(occurences = n/sum(n),
+         level      = reorder(level, occurences),
+         variable   = "artist")
+year <- songdata %>%
+  count(year) %>%
+  ungroup() %>%
+  rename(level = year) %>%
+  mutate(occurences = n/sum(n),
+         level      = reorder(level, -level),
+         variable   = "year")
+genre %>%
+  rbind(artist) %>%
+  rbind(year) %>%
   ggplot() +
   # geom_bar(aes(x = reorder(artist, occurences), y = occurences), stat = "identity", fill = "chartreuse4") +
-  geom_bar(aes(x = reorder(artist, occurences), y = occurences, fill = artist), stat = "identity") +
-  guides (fill = FALSE) +
-  scale_y_continuous(labels = scales::percent_format()) +
-  theme(axis.title.y = element_text(size = 12),
-        axis.text.y  = element_text(size = 7),
-        axis.title.x = element_blank()) +
-  labs(x = "artist") +
-  coord_flip()
-distribution_plots[["genre"]] <- songdata %>%
-  count(genre) %>%
-  mutate(occurences = n/sum(n)) %>%
-  ggplot() +
-  # geom_bar(aes(x = reorder(genre, occurences), y = occurences), stat = "identity", fill = "chartreuse4") +
-  geom_bar(aes(x = reorder(genre, occurences), y = occurences, fill = genre), stat = "identity") +
+  geom_bar(aes(x = level, y = occurences, fill = variable), stat = "identity") +
+  theme_bw() +
   guides(fill = FALSE) +
-  scale_y_continuous(labels = scales::percent_format()) +
-  theme(axis.title.y = element_text(size = 12),
-        axis.title.x = element_blank()) +
-  labs(x = "genre") +
-  coord_flip()
-distribution_plots[["year"]] <- songdata %>%
-  count(year) %>%
-  mutate(occurences = n/sum(n)) %>%
-  ggplot() +
-  # geom_bar(aes(x = year, y = occurences), stat = "identity", fill = "chartreuse4") +
-  geom_bar(aes(x = year, y = occurences, fill = factor(year)), stat = "identity") +
-  guides(fill = FALSE) +
-  scale_x_continuous(breaks = seq(min(songdata$year), max(songdata$year), 1),
-                     trans  = "reverse") +
-  scale_y_continuous(labels = scales::percent_format()) +
-  theme(axis.title.y = element_text(size = 12),
-        axis.title.x = element_blank()) +
-  coord_flip()
-grid.newpage()
-grid::grid.draw(rbind(ggplotGrob(distribution_plots[["artist"]]), 
-                      ggplotGrob(distribution_plots[["genre"]]), 
-                      ggplotGrob(distribution_plots[["year"]]), 
-                      size = "first"))
+  scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +
+  scale_fill_manual(values = c("chartreuse3", "#E69F00", "#56B4E9")) +
+  labs(y = "Percentage frequency",
+       x = "Values") +
+  theme(axis.text.y  = element_text(size = 10),
+        axis.text.x  = element_text(size = 10),
+        strip.text.x = element_text(size = 11)) +
+  coord_flip() +
+  facet_wrap(~variable, scales = "free", nrow = 3)
+rm("genre", "artist", "year")
+```
+
+Latex table
+```{r}
+songdata %>%
+  arrange(genre, artist) %>%
+  select(genre, artist, song, year) %>%
+  mutate(year = as.integer(year)) %>%
+  xtable() %>%
+  print(include.rownames = FALSE)
 ```
 
 Produce plot of genres for poster
@@ -233,12 +239,7 @@ genre %>%
         strip.text.x = element_text(size = 14)) +
   coord_flip() +
   facet_wrap(~variable, scales = "free")
-```
-
-```{r}
-rm(distribution_plots)
-rm(genre)
-rm(artist)
+rm("genre", "artist")
 ```
 
 Look at summed percentages
@@ -268,18 +269,18 @@ songdata %>%
 
 Text length
 ```{r}
-songdata %>%
-  mutate(text_length = str_length(songdata$text)) %>%
-  ggplot() +
-  geom_boxplot(aes(x = factor(0), y = text_length, fill = genre)) +
-  guides(fill = FALSE) +
-  theme(axis.title.y = element_blank(),
-        axis.text.y  = element_blank(),
-        axis.ticks.y = element_blank(),
-        axis.title.x = element_text(size = 12)) +
-  labs(y = "text length") +      
-  coord_flip() +
-  facet_wrap(~genre)
+# songdata %>%
+#   mutate(text_length = str_length(songdata$text)) %>%
+#   ggplot() +
+#   geom_boxplot(aes(x = factor(0), y = text_length, fill = genre)) +
+#   guides(fill = FALSE) +
+#   theme(axis.title.y = element_blank(),
+#         axis.text.y  = element_blank(),
+#         axis.ticks.y = element_blank(),
+#         axis.title.x = element_text(size = 12)) +
+#   labs(y = "text length") +      
+#   coord_flip() +
+#   facet_wrap(~genre)
 ```
 
 text
@@ -334,6 +335,17 @@ custom_stopwords <- c(custom_stopwords,
                "ya", "verse", "m-my", "gon", "echo", "hook", "ding", "dong", "yi", "ti", "comma")
 ```
 
+For Latex
+```{r}
+c("ooh", "tat", "yeah", "du", "wanna", "gonna", "uh", "gotta", "hey", "chorus",
+               "ya", "verse", "m-my", "gon", "echo", "hook", "ding", "dong", "yi", "ti", "comma") %>%
+  as.data.frame() %>%
+  rename(Words = ".") %>%
+  arrange(Words) %>%
+  xtable() %>%
+  print(include.rownames = FALSE)
+```
+
 Tokenization for analysis
 ```{r}
 songdata_words <- songdata %>%
@@ -346,17 +358,50 @@ Number of words
 songdata_words %>%
   count(genre, song) %>%
   ggplot() +
-  geom_boxplot(aes(x = factor(0), y = n, fill = genre, color = genre), alpha = 0.5) +
+  geom_boxplot(aes(x = genre, y = n, fill = genre, color = genre), alpha = 0.5) +
+  theme_bw() +
   guides(fill = FALSE, color = FALSE) +
-  theme(axis.title.y = element_blank(),
-        axis.text.y  = element_blank(),
-        axis.ticks.y = element_blank(),
-        axis.title.x = element_blank(),
-        axis.text.x  = element_text(size = 14),
-        strip.text.x = element_text(size = 14)) +
-  # labs(y = "number of words") +      
+  labs(y = "Number of words",
+       x = "Genre") +
+  theme(axis.text.y  = element_text(size = 10),
+        axis.text.x  = element_text(size = 10)) +
+  coord_flip()
+```
+
+Number of distinct words
+```{r}
+songdata_words %>%
+  group_by(genre, song) %>%
+  summarize(n = n_distinct(word)) %>%
+  ggplot() +
+  geom_boxplot(aes(x = genre, y = n, fill = genre, color = genre), alpha = 0.5) +
+  theme_bw() +
+  guides(fill = FALSE, color = FALSE) +
+  labs(y = "Number of distinct words",
+       x = "Genre") +
+  theme(axis.text.y  = element_text(size = 10),
+        axis.text.x  = element_text(size = 10)) +
+  coord_flip()
+```
+
+```{r}
+songdata_words %>%
+  group_by(genre, song) %>%
+  summarize(total    = n(),
+            distinct = n_distinct(word)) %>%
+  ungroup() %>%
+  gather(key = "words", value = "count", total, distinct) %>%
+  ggplot() +
+  geom_boxplot(aes(x = words, y = count, fill = genre, color = genre), alpha = 0.5) +
+  theme_bw() +
+  guides(fill = FALSE, color = FALSE) +
+  labs(y = "Number of words",
+       x = "Genre") +
+  theme(axis.text.y  = element_text(size = 10),
+        axis.text.x  = element_text(size = 10),
+        strip.text.x = element_text(size = 11)) +
   coord_flip() +
-  facet_wrap(~genre)
+  facet_wrap(~genre, ncol = 1)
 ```
 
 
@@ -378,13 +423,13 @@ songdata_words %>%
   # mutate(word  = reorder(word, n)) %>%
   ggplot(aes(reorder(word, percentage), percentage, fill = factor(genre))) +
   geom_col(show.legend = FALSE) +
-  # labs(x = "words") +
+  theme_bw() +
+  labs(x = "Most common words",
+       y = "Percentage frequency") +
   facet_wrap(~ genre, scales = "free_y") +
-  theme(axis.title.x = element_blank(),
-        axis.title.y = element_blank(),
-        axis.text.x  = element_text(size = 14),
-        axis.text.y  = element_text(size = 14),
-        strip.text.x = element_text(size = 14)) +
+  theme(axis.text.x  = element_text(size = 10),
+        axis.text.y  = element_text(size = 10),
+        strip.text.x = element_text(size = 11)) +
   scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +
   coord_flip()
 ```
@@ -392,33 +437,52 @@ songdata_words %>%
 # Sentiment analysis
 
 Plot sentiments by genre
+NEED TO FIND THE RIGHT WAY TO WEIGHT THE SENTIMENT
 ```{r}
-afinn <- songdata_words %>% 
+songdata_words %>%
+  group_by(genre, song) %>%
+  summarize(n = n_distinct(word))
+
+songdata_words %>% 
   inner_join(get_sentiments("afinn"), by = "word") %>% 
-  group_by(genre) %>% 
-  summarise(sentiment = sum(score)) %>% 
-  mutate(method = "AFINN")
+  group_by(genre, song) %>% 
+  summarize(n                  = n(),
+            # n                  = n_distinct(word),
+            sentiment          = sum(score),
+            weighted_sentiment = sentiment/n) %>% 
+  ungroup() %>%
+  mutate(genre = reorder(genre, desc(genre))) %>%
+  ggplot() +
+  geom_boxplot(aes(x = genre, y = weighted_sentiment, fill = reorder(genre, desc(genre)), color = reorder(genre, desc(genre))),
+               alpha = 0.5) +
+  theme_bw() +
+  guides(fill = FALSE, color = FALSE) +
+  labs(x = "Genre",
+       y = "Total sentiment divided by total number of words") +
+  theme(axis.text.x  = element_text(size = 10),
+        axis.text.y  = element_text(size = 10)) +
+  coord_flip()
 
-bing_and_nrc <- bind_rows(
-  songdata_words %>% 
-    inner_join(get_sentiments("bing"), by = "word") %>%
-    mutate(method = "BING"),
-  songdata_words %>% 
-    inner_join(get_sentiments("nrc") %>% filter(sentiment %in% c("positive", "negative")),
-               by = "word") %>%
-    mutate(method = "NRC")) %>%
-  count(method, genre, sentiment) %>%
-  spread(sentiment, n, fill = 0) %>%
-  mutate(sentiment = positive - negative)
-
-bind_rows(afinn, 
-          bing_and_nrc) %>%
-  ggplot(aes(genre, sentiment, fill = method)) +
-  geom_col(show.legend = FALSE) +
-  coord_flip() +
-  facet_wrap(~method, ncol = 1) +
-  theme(axis.title.x = element_text(size = 12),
-        axis.title.y = element_blank())
+# bing_and_nrc <- bind_rows(
+#   songdata_words %>% 
+#     inner_join(get_sentiments("bing"), by = "word") %>%
+#     mutate(method = "BING"),
+#   songdata_words %>% 
+#     inner_join(get_sentiments("nrc") %>% filter(sentiment %in% c("positive", "negative")),
+#                by = "word") %>%
+#     mutate(method = "NRC")) %>%
+#   count(method, genre, sentiment) %>%
+#   spread(sentiment, n, fill = 0) %>%
+#   mutate(sentiment = positive - negative)
+# 
+# bind_rows(afinn, 
+#           bing_and_nrc) %>%
+#   ggplot(aes(genre, sentiment, fill = method)) +
+#   geom_col(show.legend = FALSE) +
+#   coord_flip() +
+#   facet_wrap(~method, ncol = 1) +
+#   theme(axis.title.x = element_text(size = 12),
+#         axis.title.y = element_blank())
 ```
 
 Plot only one sentiment by genre for Poster
@@ -456,68 +520,56 @@ songdata_words %>%
 
 Plot sentiments by artist
 ```{r}
-afinn <- songdata_words %>% 
+songdata_words %>% 
   inner_join(get_sentiments("afinn"), by = "word") %>% 
-  group_by(genre, artist) %>% 
-  summarise(sentiment = sum(score)) %>% 
-  mutate(method = "AFINN")
-
-bing_and_nrc <- bind_rows(
-  songdata_words %>% 
-    inner_join(get_sentiments("bing"), by = "word") %>%
-    mutate(method = "BING"),
-  songdata_words %>% 
-    inner_join(get_sentiments("nrc") %>% filter(sentiment %in% c("positive", "negative")), by = "word") %>%
-    mutate(method = "NRC")) %>%
-  count(method, genre, artist, sentiment) %>%
-  spread(sentiment, n, fill = 0) %>%
-  mutate(sentiment = positive - negative)
-
-bind_rows(afinn, 
-          bing_and_nrc) %>%
-  ggplot(aes(artist, sentiment, fill = method)) +
-  geom_col(show.legend = FALSE) +
+  group_by(genre, artist, song) %>% 
+  summarize(n                  = n(),
+            # n                  = n_distinct(word),
+            sentiment          = sum(score),
+            weighted_sentiment = sentiment/n) %>% 
+  ggplot() +
+  geom_boxplot(aes(x = artist, y = weighted_sentiment, fill = genre, color = genre), alpha = 0.5) +
+  theme_bw() +
+  guides(fill = FALSE, color = FALSE) +
+  labs(x = "Genre and corresponding artists",
+       y = "Total sentiment divided by total number of words") +
+  theme(axis.text.x  = element_text(size = 10),
+        axis.text.y  = element_text(size = 10)) +
   coord_flip() +
-  facet_grid(rows = vars(genre), cols = vars(method), scales = "free", switch = "y") +
-  theme(axis.title.x = element_text(size = 12),
-        axis.title.y = element_blank())
+  facet_grid(genre ~ ., scales = "free_y", switch = "y")
 ```
 
-```{r}
-rm(afinn)
-rm(bing_and_nrc)
-```
 
 # TF-IDF
 
 ```{r}
-songdata_tf_idf <- songdata_words %>%
-  count(genre, artist, song, word, sort = TRUE) %>%
-  # mutate(document = paste(genre, artist, song, sep = "_")) %>%
-  bind_tf_idf(word, song, n)
+# songdata_tf_idf <- songdata_words %>%
+#   count(genre, artist, song, word, sort = TRUE) %>%
+#   # mutate(document = paste(genre, artist, song, sep = "_")) %>%
+#   bind_tf_idf(word, song, n)
 ```
 
 High tf-idf words in genres
 ```{r}
-songdata_tf_idf %>%
-  arrange(desc(tf_idf)) %>%
-  mutate(word = factor(word, levels = rev(unique(word)))) %>% 
-  group_by(genre) %>% 
-  top_n(20) %>% 
-  ungroup() %>%
-  ggplot(aes(word, tf_idf, fill = genre)) +
-  geom_col(show.legend = FALSE) +
-  labs(x = NULL, y = "tf-idf") +
-  facet_wrap(~genre, scales = "free") +
-  coord_flip()
+# songdata_tf_idf %>%
+#   arrange(desc(tf_idf)) %>%
+#   mutate(word = factor(word, levels = rev(unique(word)))) %>% 
+#   group_by(genre) %>% 
+#   top_n(20) %>% 
+#   ungroup() %>%
+#   ggplot(aes(word, tf_idf, fill = genre)) +
+#   geom_col(show.legend = FALSE) +
+#   labs(x = NULL, y = "tf-idf") +
+#   facet_wrap(~genre, scales = "free") +
+#   coord_flip()
 ```
 
 Distribution of tf-idf
 ```{r}
-songdata_tf_idf %>%
-  ggplot() +
-  geom_boxplot(aes(x = factor(0), y = tf_idf)) +
-  coord_flip()
+# songdata_tf_idf %>%
+#   ggplot() +
+#   geom_boxplot(aes(x = factor(0), y = tf_idf)) +
+#   coord_flip()
 ```
 
 # Find best number of topics
@@ -540,18 +592,18 @@ docnames(songdata_tokens) <- paste(songdata$artist, songdata$song, sep = ";")
 
 Remove words that have an tf-idf lower than 1st quantile
 ```{r}
-songdata_words <- songdata_tf_idf %>%
-  filter(tf_idf > quantile(tf_idf, probs = 0.25)) %>%
-  inner_join(songdata_words, by = c("genre", "artist", "song", "word"))
-
-test <- songdata_words %>%
-  mutate(document = paste(artist, song, sep = "_")) %>%
-  pull(word) %>%
-  dfm(tolower = TRUE, stem = TRUE, remove = custom_stopwords) %>%
-  convert(to = "tm") %>%
-  TermDocumentMatrix()
-
-test$dimnames$Docs <- paste(songdata$artist, songdata$song, sep = ";")
+# songdata_words <- songdata_tf_idf %>%
+#   filter(tf_idf > quantile(tf_idf, probs = 0.25)) %>%
+#   inner_join(songdata_words, by = c("genre", "artist", "song", "word"))
+# 
+# test <- songdata_words %>%
+#   mutate(document = paste(artist, song, sep = "_")) %>%
+#   pull(word) %>%
+#   dfm(tolower = TRUE, stem = TRUE, remove = custom_stopwords) %>%
+#   convert(to = "tm") %>%
+#   TermDocumentMatrix()
+# 
+# test$dimnames$Docs <- paste(songdata$artist, songdata$song, sep = ";")
 ```
 
 Transform all dataset into DocumentTermMatrix
@@ -593,9 +645,8 @@ DTM_test <- DTM_test %>%
 
 rm("sampling")
 
-# Up to 20
 perplexity_df <- data.frame(topics = numeric(), train = numeric(), test = numeric())
-topics <- c(2:20)
+topics <- c(2:200)
 
 # set.seed(4324663)
 for (i in topics) {
@@ -608,60 +659,113 @@ for (i in topics) {
   cat(paste("done", "\n"))
 }
 
-perplexity_df %>%
-  gather(key = "set", value = "perplexity", train, test) %>%
-  ggplot() +
-  geom_line(aes(x = topics, y = perplexity, color = set)) +
-  scale_x_continuous(breaks = perplexity_df$topics) +
-  scale_color_manual(values=c("#E69F00", "#56B4E9")) +
-  labs(x = "number of topics")
-
-perplexity_df %>%
-  filter(topics %in% seq(2, 5))
-
-rm("DTM_test", "DTM_train", "fitted", "test_data", "train_data", "i", "topics", "customer_stopwords")
+rm("DTM_test", "DTM_train", "fitted", "test_data", "train_data", "i", "topics", "custom_stopwords", "sampling")
 ```
-
 
 Rest of metrics
 ```{r}
-# Up to 20
-topic_numbers <- FindTopicsNumber(dtm     = songdata_dtm,
-                                  topics  = seq(2, 20, by = 1),
+other_metrics <- FindTopicsNumber(dtm     = songdata_dtm,
+                                  topics  = seq(2, 200, by = 1),
                                   metrics = c("Griffiths2004", "CaoJuan2009", "Arun2010", "Deveaud2014"),
                                   method  = "VEM",
                                   control = list(seed = 4324663),
                                   verbose = TRUE)
 
-# FindTopicsNumber_plot(topic_numbers)
-topic_numbers %>%
+# save.image(file = "k_metrics.RData")
+```
+
+Join
+```{r}
+k_metrics <- perplexity_df %>%
+  rename(Perplexity = test) %>%
+  select(-train) %>%
+  inner_join(other_metrics, by = "topics")
+
+rm(perplexity_df)
+rm(other_metrics)
+```
+
+Plot
+Plot of metrics for Poster
+```{r}
+k_metrics %>%
   mutate_if(!grepl("topics", names(.)), function(x) 
-                            scales::rescale(x, to = c(0, 1), from = range(x, na.rm = TRUE, finite = TRUE))) %>%
-  gather(key = "metric", value = "value", CaoJuan2009, Arun2010, Deveaud2014) %>%
-  mutate(optimization = ifelse(metric %in% c("CaoJuan2009", "Arun2010"), "minimize", "maximize")) %>%
+                            ifelse(is.infinite(x), NA, 
+                                   scales::rescale(x, to = c(0, 1), from = range(x, na.rm = TRUE, finite = TRUE)))) %>%
+  gather(key = "metric", value = "value", Perplexity, CaoJuan2009, Arun2010, Deveaud2014) %>%
+  mutate(optimization = ifelse(metric == "Deveaud2014", "maximize", "minimize")) %>%
   ggplot(aes(x = topics, y = value, color = metric)) +
   geom_line(stat = "identity") +
-  geom_point(aes(shape = metric), size = 3) +
-  scale_x_continuous(breaks = topic_numbers$topics) +
-  labs(x = "number of topics", y = NULL) +
+  geom_point(aes(shape = metric, fill = metric), size = 1) +
+  theme_bw() +
+  scale_shape_manual(values = 21:24) +
+  scale_x_continuous(breaks = seq(0, max(k_metrics$topics), 25)) +
+  scale_y_continuous(oob = scales::discard) +
+  labs(x = "Number of topics",
+       y = "Scaled values of metrics") +
+  theme(legend.position   = "top",
+        legend.margin     = margin(0,0,0,0),
+        # legend.box.margin = margin(-5,-5,-5,-5),
+        # legend.title      = element_blank(),
+        axis.text.x       = element_text(size = 10),
+        strip.text.y      = element_text(size = 11)) +
   facet_grid(optimization ~ .)
+```
 
-# Optimal values
-topic_numbers %>%
-  mutate(Deveaud2014 = ifelse(is.infinite(Deveaud2014), NA, Deveaud2014)) %>%
-  mutate(CaoJuan2009min = min(CaoJuan2009),
-         Arun2010min    = min(Arun2010),
-         Deveaud2014max = max(Deveaud2014, na.rm = TRUE)) %>%
-  filter(CaoJuan2009 == CaoJuan2009min |
-         Arun2010    == Arun2010min |
-         Deveaud2014 == Deveaud2014max)
+Find optimal number for each metric
+```{r}
+metrics <- k_metrics %>%
+  select_if(!grepl("topics", names(.))) %>%
+  colnames()
+
+k_optimal <- data.frame(metrics          = metrics,
+                        number_of_topics = rep(NA, 4))
+
+for (m in metrics) {
+  
+  cat(paste("Metric: ", m, ", "))
+
+  if (m == "Deveaud2014") {
+    
+    optimal_value <- k_metrics %>%
+      mutate(Deveaud2014 = ifelse(is.infinite(Deveaud2014), NA, Deveaud2014)) %>%
+      pull(!!m) %>%
+      max(na.rm = TRUE)
+  
+  } else {
+    
+    optimal_value <- k_metrics %>%
+      pull(!!m) %>%
+      min(na.rm = TRUE)
+
+  }
+  
+  cat(paste("Optimal value: ", optimal_value, ", "))
+  
+  optimal_k <- k_metrics %>%
+    filter(!!sym(m) == optimal_value) %>%
+    pull(topics)
+  
+  cat(paste("Optimal number of topics: ", optimal_k, "\n"))
+  
+  k_optimal <- k_optimal %>%
+    mutate(number_of_topics = ifelse(metrics == m, optimal_k, number_of_topics))
+  
+}
+
+k_optimal %>%
+  xtable()
+
+rm(metrics)
+rm(m)
+rm(optimal_value)
+rm(optimal_k)
 ```
 
 Plot of metrics for Poster
 ```{r}
-topic_numbers %>%
-  inner_join(perplexity_df, by = "topics") %>%
-  rename(Perplexity = test) %>%
+k_metrics %>%
+  filter(topics %in% 2:20) %>%
   mutate_if(!grepl("topics", names(.)), function(x) 
                             scales::rescale(x, to = c(0, 1), from = range(x, na.rm = TRUE, finite = TRUE))) %>%
   gather(key = "metric", value = "value", Perplexity, CaoJuan2009, Arun2010, Deveaud2014) %>%
@@ -670,7 +774,7 @@ topic_numbers %>%
   geom_line(stat = "identity") +
   geom_point(aes(shape = metric, fill = metric), size = 3) +
   scale_shape_manual(values = 21:24) +
-  scale_x_continuous(breaks = topic_numbers$topics) +
+  scale_x_continuous(breaks = k_metrics$topics) +
   theme(legend.position   = "top",
         legend.margin     = margin(0,0,0,0),
         legend.box.margin = margin(-5,-5,-5,-5),
@@ -682,69 +786,6 @@ topic_numbers %>%
         strip.text.y      = element_text(size = 14),
         axis.title.y      = element_blank()) +
   facet_grid(optimization ~ .)
-```
-
-```{r}
-# # Up to 200 (all observations)
-# topic_numbers_all <- FindTopicsNumber(dtm     = songdata_dtm,
-#                                       topics  = seq(2, length(songdata_dtm$dimnames$Docs), by = 1),
-#                                       metrics = c("Griffiths2004", "CaoJuan2009", "Arun2010", "Deveaud2014"),
-#                                       method  = "VEM",
-#                                       control = list(seed = 4324663),
-#                                       verbose = TRUE)
-# 
-# 
-# save.image(file = "topicsnumber.RData")
-# 
-# # FindTopicsNumber_plot(topic_numbers)
-# topic_numbers_all %>%
-#   # mutate(Deveaud2014 = ifelse(is.infinite(Deveaud2014), NA, Deveaud2014)) %>%
-#   mutate_if(!grepl("topics", names(.)),
-#             function(x) scales::rescale(x, to = c(0, 1), from = range(x, na.rm = TRUE, finite = TRUE))) %>%
-#   gather(key = "metric", value = "value", CaoJuan2009, Arun2010, Deveaud2014) %>%
-#   mutate(optimization = ifelse(metric %in% c("CaoJuan2009", "Arun2010"), "minimize", "maximize")) %>%
-#   ggplot(aes(x = topics, y = value, color = metric)) +
-#   geom_line(stat = "identity") +
-#   geom_point(aes(shape = metric), size = 1) +
-#   scale_x_continuous(breaks = seq(0, max(topic_numbers_all$topics), by = 10)) +
-#   guides(color = FALSE, shape = FALSE) +
-#   labs(x = "number of topics", y = NULL) +
-#   facet_grid(optimization ~ .)
-# 
-# topic_numbers_all <- topic_numbers_all %>%
-#   mutate(Deveaud2014na = ifelse(is.infinite(Deveaud2014), NA, Deveaud2014))
-# 
-# # data.frame(
-# #   metric = c("CaoJuan2009", "Arun2010", "Deveaud2014"),
-# #   value  = c(topic_numbers_all[topic_numbers_all$CaoJuan2009 == min(topic_numbers_all$CaoJuan2009),
-# #                                names(topic_numbers_all == "CaoJuan2009")],
-# #              topic_numbers_all[topic_numbers_all$Arun2010 == min(topic_numbers_all$Arun2010),
-# #                                names(topic_numbers_all == "Arun2010")],
-# #              topic_numbers_all[topic_numbers_all$Deveaud2014 == max(topic_numbers_all$Deveaud2014na, na.rm = TRUE),
-# #                                names(topic_numbers_all == "Deveaud2014na")]),
-# #   topics = c(topic_numbers_all[topic_numbers_all$CaoJuan2009 == min(topic_numbers_all$CaoJuan2009),
-# #                                names(topic_numbers_all == "topics")],
-# #              topic_numbers_all[topic_numbers_all$Arun2010 == min(topic_numbers_all$Arun2010),
-# #                                names(topic_numbers_all == "topics")],
-# #              topic_numbers_all[topic_numbers_all$Deveaud2014 == max(topic_numbers_all$Deveaud2014na, na.rm = TRUE),
-# #                                names(topic_numbers_all == "topics")]))
-# 
-# topic_numbers_all %>%
-#   mutate(Deveaud2014 = ifelse(is.infinite(Deveaud2014), NA, Deveaud2014)) %>%
-#   mutate(CaoJuan2009min = min(CaoJuan2009),
-#          Arun2010min    = min(Arun2010),
-#          Deveaud2014max = max(Deveaud2014, na.rm = TRUE)) %>%
-#   filter(CaoJuan2009 == CaoJuan2009min |
-#          Arun2010 == Arun2010min |
-#          Deveaud2014 == Deveaud2014max)
-# 
-# # rm("topic_numbers", "topic_numbers")
-
-```
-
-```{r}
-# rm(perplexity_df)
-# rm(topic_numbers)
 ```
 
 LDA with values of k from 2 to 5
@@ -761,7 +802,9 @@ names(songdata_lda) <- c(2:(length(songdata_lda)+1))
 
 rm(k)
 
-save.image(file = "lda_25k.RData")
+# save.image(file = "lda_25k.RData")
+# 
+# load(file = "lda_25k.RData")
 ```
 
 Calculate probabilites of interest:
@@ -787,6 +830,14 @@ names(songdata_gamma) <- c(2:(length(songdata_gamma)+1))
 rm(k)
 ```
 
+```{r}
+# test_lda <- LDA(songdata_dtm, k = 3, method = "VEM", control = list(seed = 978324))
+# 
+# test_beta <- tidy(test_lda, matrix = "beta")
+# 
+# test_gamma <- tidy(test_lda, matrix = "gamma")
+```
+
 Words in topics
 ```{r}
 for (k in 2:(length(songdata_beta)+1)) {
@@ -803,9 +854,12 @@ for (k in 2:(length(songdata_beta)+1)) {
            topic = paste0("topic", topic)) %>%
     ggplot(aes(reorder(term, beta), beta, fill = factor(topic))) +
     geom_col(show.legend = FALSE) +
-    labs(x = "terms") +
+    theme_bw() +
+    labs(x = "Words",
+         y = "Probability") +
     facet_wrap(~ topic, scales = "free_y") +
-    theme(axis.title.x = element_blank()) +
+    theme(axis.text.x = element_text(size = 10),
+          axis.text.y = element_text(size = 10)) +
     coord_flip()
   
   print(plot)
@@ -850,9 +904,12 @@ do.call("rbind", songdata_beta) %>%
   summarize(sentiment = sum(weighted_score)) %>%
   ggplot(aes(topic, sentiment, fill = topic)) +
   geom_col(show.legend = FALSE) +
-  theme(axis.title.y = element_text(size = 12),
-        axis.title.x = element_blank()) +
-  labs(y = "Weighted average sentiment") + 
+  theme_bw() +
+  theme(axis.text.y  = element_text(size = 10),
+        axis.text.x  = element_text(size = 10),
+        strip.text.x = element_text(size = 11)) +
+  labs(y = "Weighted average sentiment",
+       x = "Topics") + 
   facet_wrap(~topics, scales = "free_x")
 ```
 
@@ -861,20 +918,18 @@ Weighted average sentiment pro topic (3 topics) for Poster
 songdata_beta[["3"]] %>%
   inner_join(get_sentiments("afinn"), by = c("term" = "word")) %>% 
   mutate(topic          = paste0("topic", topic),
-         weighted_score = beta*score) %>%
+         weighted_score = beta*score,
+         topics         = paste(topics, "topics")) %>%
   group_by(topics, topic) %>% 
-  summarize(score = sum(weighted_score)) %>%
-  mutate(sentiment = "Weighted average sentiment") %>%
-  ggplot(aes(reorder(topic, score), score, fill = topic)) +
+  summarize(sentiment = sum(weighted_score)) %>%
+  ggplot(aes(topic, sentiment, fill = topic)) +
   geom_col(show.legend = FALSE) +
-  coord_flip() +
-  theme(axis.title.y = element_blank(),
-        axis.text.x  = element_text(size = 14),
-        axis.text.y  = element_text(size = 14),
-        axis.title.x = element_blank(),
-        strip.text.x = element_text(size = 14)) +
-  # labs(y = "Weighted average sentiment") + 
-  facet_wrap(~sentiment)
+  theme_bw() +
+  theme(axis.text.x = element_text(size = 10),
+        axis.text.y = element_text(size = 10)) +
+  labs(y = "Weighted average sentiment",
+       x = "Topics") +
+  coord_flip()
 ```
 
 Gamma for genres
@@ -891,12 +946,13 @@ for (k in 2:(length(songdata_gamma)+1)) {
            topic = paste0("topic", topic)) %>%
     ggplot(aes(factor(topic), gamma, fill = factor(topic), color = factor(topic))) +
     geom_boxplot(alpha = 0.5) +
-    theme(axis.text.x  = element_text(size = 14),
-          axis.text.y  = element_text(size = 14),
-          axis.title.x = element_blank(),
-          axis.title.y = element_blank(),
-          strip.text.x = element_text(size = 14)) +
+    theme_bw() +
+    theme(axis.text.x  = element_text(size = 10),
+          axis.text.y  = element_text(size = 10),
+          strip.text.x = element_text(size = 11)) +
     guides(fill = FALSE, color = FALSE) +
+    labs(x = "Topics",
+         y = "Probability") +
     facet_wrap(~ genre)
   
   print(plot)
@@ -906,6 +962,8 @@ rm(genre_gamma)
 rm(plot)
 rm(k)
 ```
+
+Idea: for each document only keep the topic where it has the highest probability
 
 Gamma for years
 ```{r}
@@ -921,8 +979,9 @@ for (k in 2:(length(songdata_gamma)+1)) {
            topic = paste0("topic", topic)) %>%
     ggplot(aes(factor(topic), gamma, fill = factor(topic), color = factor(topic))) +
     geom_boxplot(alpha = 0.5) +
-    labs(y        = "probability",
-         title    = "Topic probabilities per year") +
+    theme_bw() +
+    labs(y = "Probability",
+         x = "Topics") +
     theme(axis.title.x = element_blank()) +
     guides(fill = FALSE, color = FALSE) +
     facet_wrap(~year)
@@ -937,54 +996,53 @@ rm(plot)
 Gamma for artists
 ```{r}
 for (k in 2:(length(songdata_gamma)+1)) {
-  
-  genre_gamma <- songdata_gamma[[k-1]] %>%
+
+  plot <- songdata_gamma[[k-1]] %>%
     separate(document, into = c("artist", "song"), sep = ";") %>%
     inner_join(songdata, by = c("artist", "song")) %>%
-    dplyr::select(-year, -text)
-  
-  for (g in unique(genre_gamma$genre)) {
-    
-      plot <- genre_gamma %>%
-        filter(genre == g) %>%
-        mutate(artist = reorder(artist, gamma * topic),
-               topic = paste0("topic", topic)) %>%
-        ggplot(aes(factor(topic), gamma, fill = factor(topic), color = factor(topic))) +
-        geom_boxplot(alpha = 0.5) +
-        labs(title = g) +
-        theme(axis.title.x = element_blank(),
-              axis.title.y = element_blank(),
-              plot.title = element_text(hjust = 0.5)) +
-        guides(fill = FALSE, color = FALSE) +
-        facet_wrap(~artist)
-      
+    dplyr::select(-year, -text) %>%
+    mutate(topic = paste0("topic", topic)) %>%
+    ggplot() +
+    geom_boxplot(aes(x = artist, y = gamma, fill = topic, color = topic), alpha = 0.5) +
+    theme_bw() +
+    guides(fill = FALSE, color = FALSE) +
+    labs(x = "Artists",
+         y = "Probability") +
+    theme(axis.text.x   = element_text(size = 10, angle = 45, hjust = 0.8, vjust = 1),
+          axis.text.y   = element_text(size = 10)) +
+    coord_flip() +
+    facet_grid(genre ~ topic, scales = "free_y", switch = "y")
+
         print(plot)
-    
-  }
-  
+
 }
 
-rm(genre_gamma)
 rm(plot)
 rm(k)
-rm(g)
 ```
 
-Topic - genre - artist
 ```{r}
-for (k in 2:(length(songdata_gamma)+1)) {
+# for (k in 2:(length(songdata_gamma)+1)) {
+  
+for (k in 2:2) {
   
   plot <- songdata_gamma[[k-1]] %>%
     separate(document, into = c("artist", "song"), sep = ";") %>%
     inner_join(songdata, by = c("artist", "song")) %>%
     dplyr::select(-year, -text) %>%
-    mutate(topic          = paste0("topic", topic)) %>%
-    ggplot(aes(artist, gamma, fill = topic)) +
-    geom_col(show.legend = FALSE) +
-    coord_flip() +
-    facet_grid(rows = vars(genre), cols = vars(topic), scales = "free_y", switch = "y") +
-    theme(axis.title.x = element_text(size = 12),
-          axis.title.y = element_blank())
+    mutate(topic = paste0("topic", topic)) %>%
+    ggplot() +
+    # geom_col(aes(artist, gamma, fill = topic), show.legend = FALSE) +
+    geom_boxplot(aes(factor(topic), gamma, fill = factor(topic), color = factor(topic)), alpha = 0.5, show.legend = FALSE) +
+    theme_bw() +
+    # coord_flip() +
+    # facet_grid(rows = vars(topic), cols = vars(genre), scales = "free_x", switch = "x") +
+    facet_wrap(. ~ genre + artist) +
+    labs(x = "Topics",
+         y = "Probability") +
+    theme(axis.text.x  = element_text(size = 10),
+          axis.text.y  = element_text(size = 9),
+          strip.text.x = element_text(size = 10))
   
   print(plot)
   
