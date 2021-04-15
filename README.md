@@ -4,10 +4,14 @@ This repository contains the files for the project "Application of LDA topic mod
 
 ## Description
 
-The data for the project was downloaded from Kaggle (https://www.kaggle.com/mousehead/songlyrics and https://www.kaggle.com/gyani95/380000-lyrics-from-metrolyrics).
-The dataset contains song lyrics from different artists and genres.
+In trying to understand the large collection of texts that are present nowadays, one would like to divide them into groups in order to separately comprehend their message ([[5]](#5)). Topic modelling serves this purpose, being an unsupervised classification method which searches for natural groups of words in the documents, called topics ([[5]](#5)). A specific topic modelling algorithm is called *Latent Dirichlet Allocation (LDA)*, which "treats each document as a mixture of topics, and each topic as a mixture of words" ([[5]](#5)). 
 
-The project applies the topic modelling algorithm "Latent Dirichlet Allocation" on a set of song lyrics to discover the number of topics and what the found topics are about.
+In this project LDA was applied to a corpus of 200 song texts from multiple artists of different music genres to search for the underlying topics and to analyze if there are various topics within genres or artists.
+
+The seminar paper can be read [here](https://github.com/silvia-ventoruzzo/ANGEWSTAT-SOSE-2019/blob/master/Silvia_Ventoruzzo_Paper.pdf) and the presentation poster found [here](https://github.com/silvia-ventoruzzo/ANGEWSTAT-SOSE-2019/blob/master/Silvia_Ventoruzzo_Poster.pdf).
+
+## Data
+The data was downloaded from two sources in Kaggle: [(1)](https://www.kaggle.com/mousehead/songlyrics) and [(2)](https://www.kaggle.com/gyani95/380000-lyrics-from-metrolyrics).
 
 ## Content
 
@@ -34,3 +38,5 @@ The project is divided into the following parts:
 <a id="3">[3]</a> Cao, J., Xia, T., Li, J., Zhang, Y., & Tang, S. (2009). A density-based method for adaptive LDA model selection. Neurocomputing, 72(7-9), 1775-1781.
 
 <a id="4">[4]</a> Deveaud, R., SanJuan, E., & Bellot, P. (2014). Accurate and effective latent concept modeling for ad hoc information retrieval. Document numérique, 17(1), 61-84.
+
+<a id="5">[5]</a> Silge, J., & Robinson, D. (2017). Text mining with R: A tidy approach. O’Reilly Media, Inc.
